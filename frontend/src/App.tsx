@@ -19,8 +19,27 @@ type ReviewResponse = {
   filename: string;
   text_length: number;
   text_preview: string;
+  field_extraction: FieldExtraction;
   finding_count: number;
   findings: Finding[];
+};
+
+type ContractFields = {
+  contract_type?: string | null;
+  party_a?: string | null;
+  party_b?: string | null;
+  amount_number?: number | null;
+  amount_text?: string | null;
+  payment_terms?: string | null;
+  delivery_date?: string | null;
+  dispute_resolution?: string | null;
+  confidence: number;
+};
+
+type FieldExtraction = {
+  status: string;
+  fields: ContractFields | null;
+  error_message?: string | null;
 };
 
 function App() {
@@ -89,6 +108,41 @@ function App() {
             type={result.finding_count > 0 ? "warning" : "success"}
             showIcon
           />
+
+          {result.field_extraction.fields && (
+            <Card style={{ marginTop: 24 }}>
+              <Title level={4}>合同字段抽取</Title>
+
+              <Paragraph>
+                合同类型：{result.field_extraction.fields.contract_type}
+              </Paragraph>
+              <Paragraph>
+                甲方：{result.field_extraction.fields.party_a}
+              </Paragraph>
+              <Paragraph>
+                乙方：{result.field_extraction.fields.party_b}
+              </Paragraph>
+              <Paragraph>
+                小写金额：{result.field_extraction.fields.amount_number}
+              </Paragraph>
+              <Paragraph>
+                大写金额：{result.field_extraction.fields.amount_text}
+              </Paragraph>
+              <Paragraph>
+                付款方式：{result.field_extraction.fields.payment_terms}
+              </Paragraph>
+              <Paragraph>
+                交付时间：{result.field_extraction.fields.delivery_date}
+              </Paragraph>
+              <Paragraph>
+                争议解决：
+                {result.field_extraction.fields.dispute_resolution}
+              </Paragraph>
+              <Paragraph>
+                置信度：{result.field_extraction.fields.confidence}
+              </Paragraph>
+            </Card>
+          )}
 
           <Title level={4} style={{ marginTop: 24 }}>
             风险项
