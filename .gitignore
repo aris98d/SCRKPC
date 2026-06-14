@@ -1,0 +1,56 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+dist/
+build/
+.vite/
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Uploads / generated files
+uploads/
+storage/
+reports/
+tmp/
+
+# Database
+*.sqlite3
+*.db
+
+# Docker
+docker-data/
+
+# Model / vector cache
+.cache/
+models/
+ollama-data/
+
+# Evaluation outputs
+evaluation/reports/*.html
+evaluation/reports/*.pdf
