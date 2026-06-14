@@ -6,6 +6,7 @@ from fastapi import APIRouter, UploadFile, File, HTTPException
 
 from app.services.document_parser import parse_document
 from app.review.rules import review_contract
+from app.schemas.review import ReviewDemoResponse
 
 router = APIRouter()
 
@@ -15,7 +16,7 @@ UPLOAD_DIR.mkdir(exist_ok=True)
 ALLOWED_SUFFIXES = {".txt", ".docx", ".pdf"}
 
 
-@router.post("/review-demo")
+@router.post("/review-demo", response_model=ReviewDemoResponse)
 async def review_demo(file: UploadFile = File(...)):
     suffix = Path(file.filename).suffix.lower()
 
