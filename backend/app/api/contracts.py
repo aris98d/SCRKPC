@@ -4,6 +4,8 @@ from uuid import uuid4
 
 from fastapi import APIRouter, UploadFile, File, HTTPException
 
+from app.services.field_extractor import extract_contract_fields
+from app.schemas.review import ReviewDemoResponse
 from app.services.document_parser import parse_document
 from app.review.rules import review_contract
 from app.schemas.review import ReviewDemoResponse
@@ -34,12 +36,14 @@ async def review_demo(file: UploadFile = File(...)):
             shutil.copyfileobj(file.file, buffer)
 
         text = parse_document(str(saved_path), file.filename)
+        field_extraction = extract_contract_fields(text)
         findings = review_contract(text)
 
         return {
             "filename": file.filename,
             "text_length": len(text),
             "text_preview": text[:1000],
+            "field_extraction": field_extraction,
             "finding_count": len(findings),
             "findings": findings,
         }

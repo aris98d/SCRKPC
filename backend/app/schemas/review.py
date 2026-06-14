@@ -1,6 +1,8 @@
 from pydantic import BaseModel
 from typing import Literal
 
+from app.schemas.contract_fields import FieldExtractionResult
+
 
 class ReviewFinding(BaseModel):
     rule_code: str
@@ -16,5 +18,6 @@ class ReviewDemoResponse(BaseModel):
     filename: str
     text_length: int
     text_preview: str
+    field_extraction: FieldExtractionResult
     finding_count: int
     findings: list[ReviewFinding]
