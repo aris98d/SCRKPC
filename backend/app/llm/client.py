@@ -6,11 +6,8 @@ from app.core.config import get_settings
 def get_llm_client() -> OpenAI:
     settings = get_settings()
 
-    if not settings.llm_api_key:
-        raise RuntimeError("LLM_API_KEY is not configured")
-
     return OpenAI(
-        api_key=settings.llm_api_key,
+        api_key=settings.llm_api_key or "ollama",
         base_url=settings.llm_base_url,
     )
 
@@ -32,6 +29,7 @@ def call_llm(prompt: str) -> str:
             },
         ],
         temperature=0,
+        response_format={"type": "json_object"},
     )
 
     return response.choices[0].message.content or ""
