@@ -8,6 +8,8 @@ const { Title, Paragraph } = Typography;
 type KnowledgeCitation = {
   chunk_id: string;
   document_name: string;
+  chapter_title?: string | null;
+  section_title?: string | null;
   text: string;
   score?: number | null;
 };
@@ -195,8 +197,14 @@ function App() {
                         >
                           <Paragraph style={{ marginBottom: 8 }}>
                             <strong>{citation.document_name}</strong>
+                            {citation.chapter_title && (
+                              <span>｜{citation.chapter_title}</span>
+                            )}
+                            {citation.section_title && (
+                              <span>｜{citation.section_title}</span>
+                            )}
                             {citation.score !== undefined && citation.score !== null && (
-                              <span> ｜相关度：{citation.score}</span>
+                              <span>｜相关度：{citation.score}</span>
                             )}
                           </Paragraph>
 
