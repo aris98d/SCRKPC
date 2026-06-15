@@ -16,7 +16,10 @@ def build_field_extraction_prompt(contract_text: str) -> str:
 2. 不要输出 Markdown。
 3. 不要输出解释。
 4. 如果某个字段无法确定，填 null。
-5. confidence 表示你对整体抽取结果的置信度，范围 0 到 1。
+5. amount_number 只能输出纯数字，不要包含货币符号、单位或千位分隔符。
+6. 尽量保留合同原文，不要改写、推断或补充合同中没有的信息。
+7. delivery_date 表示交付时间或交付安排；即使原文是“双方另行协商”等非具体日期，也必须抽取原文，不能填 null。
+8. confidence 表示你对整体抽取结果的置信度，范围 0 到 1。
 
 字段说明：
 - contract_type：合同类型，例如采购合同、销售合同、服务合同
