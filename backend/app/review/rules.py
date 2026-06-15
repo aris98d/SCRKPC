@@ -1,5 +1,35 @@
 import re
-from app.rag.simple_retriever import search_policy_evidence
+from app.rag.policy_retriever import search_policy_evidence
+
+
+def extract_number_amount(text: str) -> float | None:
+    """提取合同中的阿拉伯数字金额"""
+    pattern = r"￥?(\d+(?:[,，]\d{3})*(?:\.\d{2})?)"
+    match = re.search(pattern, text)
+    if match:
+        amount_str = match.group(1).replace(",", "").replace("，", "")
+        try:
+            return float(amount_str)
+        except ValueError:
+            return None
+    return None
+
+
+def extract_chinese_amount(text: str) -> float | None:
+    """提取合同中的中文大写金额"""
+    # 简单的中文金额提取逻辑
+    chinese_num_map = {
+        "零": 0, "一": 1, "二": 2, "三": 3, "四": 4,
+        "五": 5, "六": 6, "七": 7, "八": 8, "九": 9,
+        "十": 10, "百": 100, "千": 1000, "万": 10000,
+        "亿": 100000000
+    }
+    pattern = r"[零一二三四五六七八九十百千万亿元整]+"
+    match = re.search(pattern, text)
+    if match:
+        # 简化处理：返回None，交由人工审核
+        return None
+    return None
 
 
 def check_prepayment_limit(text: str) -> dict | None:
@@ -14,7 +44,11 @@ def check_prepayment_limit(text: str) -> dict | None:
         if match:
             ratio = int(match.group(1))
             if ratio > 30:
-                citations = search_policy_evidence("采购合同 预付款 30% 审批")
+                citations = search_policy_evidence(
+                    rule_code="PAYMENT_PREPAYMENT_LIMIT",
+                    query="采购合同 预付款比例 超过30% 专项审批",
+                    top_k=3,
+                )
 
                 return {
                     "rule_code": "PAYMENT_PREPAYMENT_LIMIT",
@@ -35,7 +69,11 @@ def check_delivery_date(text: str) -> dict | None:
 
     for word in risky_words:
         if word in text and ("交付" in text or "交货" in text):
-            citations = search_policy_evidence("采购合同 交付日期 验收 另行协商")
+            citations = search_policy_evidence(
+                rule_code="DELIVERY_DATE_MISSING",
+                query="采购合同 交付日期 另行协商 待定 不确定表述",
+                top_k=3,
+            )
             
             return {
                 "rule_code": "DELIVERY_DATE_MISSING",
@@ -53,7 +91,11 @@ def check_delivery_date(text: str) -> dict | None:
 
 def check_dispute_location(text: str) -> dict | None:
     if "乙方所在地法院" in text or "乙方所在地人民法院" in text:
-        citations = search_policy_evidence("采购合同 争议解决地 甲方所在地 法院")
+        citations = search_policy_evidence(
+            rule_code="DISPUTE_LOCATION_RISK",
+            query="采购合同 争议解决地 甲方所在地人民法院 法务审批",
+            top_k=3,
+        )
 
         return {
             "rule_code": "DISPUTE_LOCATION_RISK",
@@ -70,19 +112,34 @@ def check_dispute_location(text: str) -> dict | None:
 
 
 def check_amount_consistency(text: str) -> dict | None:
-    """
-    MVP 简化版：只做演示。
-    如果同时出现 100000 和 壹拾贰万，认为金额大小写不一致。
-    """
-    if "100000" in text and "壹拾贰万" in text:
-        citations = search_policy_evidence("采购合同 金额 大写 小写 一致")
-        
+    number_amount = extract_number_amount(text)
+    chinese_amount = extract_chinese_amount(text)
+
+    citations = search_policy_evidence(
+        rule_code="AMOUNT_CASE_INCONSISTENT",
+        query="采购合同 金额 小写金额 大写金额 一致",
+        top_k=3,
+    )
+
+    if number_amount is None or chinese_amount is None:
+        return {
+            "rule_code": "AMOUNT_EXTRACTION_INCOMPLETE",
+            "status": "warning",
+            "severity": "medium",
+            "summary": "合同金额大小写信息不完整，无法自动核验",
+            "contract_quote": None,
+            "suggestion": "建议人工核对合同金额的大写和小写表达是否完整一致。",
+            "needs_human_review": True,
+            "knowledge_citations": citations,
+        }
+
+    if abs(number_amount - chinese_amount) > 0.01:
         return {
             "rule_code": "AMOUNT_CASE_INCONSISTENT",
             "status": "risk",
             "severity": "high",
-            "summary": "合同金额大小写可能不一致",
-            "contract_quote": "人民币100000元，大写人民币壹拾贰万元整",
+            "summary": f"合同金额大小写不一致，小写金额为 {number_amount:.2f} 元，大写金额约为 {chinese_amount:.2f} 元",
+            "contract_quote": None,
             "suggestion": "建议核对合同金额，并保持大写金额与小写金额一致。",
             "needs_human_review": True,
             "knowledge_citations": citations,

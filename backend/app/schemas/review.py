@@ -7,6 +7,8 @@ from app.schemas.contract_fields import FieldExtractionResult
 class KnowledgeCitation(BaseModel):
     chunk_id: str
     document_name: str
+    chapter_title: str | None = None
+    section_title: str | None = None
     text: str
     score: int | float | None = None
 
