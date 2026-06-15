@@ -5,14 +5,22 @@ import type { UploadFile } from "antd";
 
 const { Title, Paragraph } = Typography;
 
+type KnowledgeCitation = {
+  chunk_id: string;
+  document_name: string;
+  text: string;
+  score?: number | null;
+};
+
 type Finding = {
   rule_code: string;
   status: string;
   severity: string;
   summary: string;
-  contract_quote?: string;
+  contract_quote?: string | null;
   suggestion: string;
   needs_human_review: boolean;
+  knowledge_citations?: KnowledgeCitation[];
 };
 
 type ReviewResponse = {
@@ -173,6 +181,33 @@ function App() {
                   <strong>建议：</strong>
                   {finding.suggestion}
                 </Paragraph>
+
+                {finding.knowledge_citations && finding.knowledge_citations.length > 0 && (
+                  <div style={{ marginTop: 12 }}>
+                    <strong>制度依据：</strong>
+
+                    <Space direction="vertical" style={{ width: "100%", marginTop: 8 }}>
+                      {finding.knowledge_citations.map((citation) => (
+                        <Card
+                          key={citation.chunk_id}
+                          size="small"
+                          style={{ background: "#fafafa" }}
+                        >
+                          <Paragraph style={{ marginBottom: 8 }}>
+                            <strong>{citation.document_name}</strong>
+                            {citation.score !== undefined && citation.score !== null && (
+                              <span> ｜相关度：{citation.score}</span>
+                            )}
+                          </Paragraph>
+
+                          <Paragraph style={{ marginBottom: 0 }}>
+                            {citation.text}
+                          </Paragraph>
+                        </Card>
+                      ))}
+                    </Space>
+                  </div>
+                )}
               </Card>
             ))}
           </Space>
