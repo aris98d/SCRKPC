@@ -1,3 +1,11 @@
+from pathlib import Path
+import sys
+
+
+BACKEND_DIR = Path(__file__).resolve().parents[1]
+if str(BACKEND_DIR) not in sys.path:
+    sys.path.insert(0, str(BACKEND_DIR))
+
 from app.rag.vector_retriever import search_policy_evidence_vector
 
 
@@ -7,7 +15,7 @@ def main():
         query="合同签订后支付合同总额的50%，是否超过预付款比例限制",
         candidate_k=20,
         top_k=5,
-        use_reranker=False,
+        use_reranker=True,
     )
 
     for item in results:
