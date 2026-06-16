@@ -1,5 +1,5 @@
 import re
-from app.rag.policy_retriever import search_policy_evidence
+from app.rag.vector_retriever import search_policy_evidence_vector
 
 
 def extract_number_amount(text: str) -> float | None:
@@ -44,7 +44,7 @@ def check_prepayment_limit(text: str) -> dict | None:
         if match:
             ratio = int(match.group(1))
             if ratio > 30:
-                citations = search_policy_evidence(
+                citations = search_policy_evidence_vector(
                     rule_code="PAYMENT_PREPAYMENT_LIMIT",
                     query="采购合同 预付款比例 超过30% 专项审批",
                     top_k=3,
@@ -69,7 +69,7 @@ def check_delivery_date(text: str) -> dict | None:
 
     for word in risky_words:
         if word in text and ("交付" in text or "交货" in text):
-            citations = search_policy_evidence(
+            citations = search_policy_evidence_vector(
                 rule_code="DELIVERY_DATE_MISSING",
                 query="采购合同 交付日期 另行协商 待定 不确定表述",
                 top_k=3,
@@ -91,7 +91,7 @@ def check_delivery_date(text: str) -> dict | None:
 
 def check_dispute_location(text: str) -> dict | None:
     if "乙方所在地法院" in text or "乙方所在地人民法院" in text:
-        citations = search_policy_evidence(
+        citations = search_policy_evidence_vector(
             rule_code="DISPUTE_LOCATION_RISK",
             query="采购合同 争议解决地 甲方所在地人民法院 法务审批",
             top_k=3,
@@ -115,7 +115,7 @@ def check_amount_consistency(text: str) -> dict | None:
     number_amount = extract_number_amount(text)
     chinese_amount = extract_chinese_amount(text)
 
-    citations = search_policy_evidence(
+    citations = search_policy_evidence_vector(
         rule_code="AMOUNT_CASE_INCONSISTENT",
         query="采购合同 金额 小写金额 大写金额 一致",
         top_k=3,
