@@ -12,6 +12,8 @@ type KnowledgeCitation = {
   section_title?: string | null;
   text: string;
   score?: number | null;
+  vector_score?: number | null;
+  rerank_score?: number | null;
 };
 
 type Finding = {
@@ -205,6 +207,12 @@ function App() {
                             )}
                             {citation.score !== undefined && citation.score !== null && (
                               <span>｜相关度：{citation.score}</span>
+                            )}
+                            {citation.rerank_score !== undefined && citation.rerank_score !== null && (
+                              <span>｜重排分：{citation.rerank_score.toFixed(2)}</span>
+                            )}
+                            {citation.vector_score !== undefined && citation.vector_score !== null && (
+                              <span>｜向量分：{citation.vector_score.toFixed(2)}</span>
                             )}
                           </Paragraph>
 
