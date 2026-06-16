@@ -2,6 +2,7 @@ import { useState } from "react";
 import axios from "axios";
 import { Button, Card, Upload, Typography, Alert, Space, Tag } from "antd";
 import type { UploadFile } from "antd";
+import { apiUrl } from "./config";
 
 const { Title, Paragraph } = Typography;
 
@@ -71,7 +72,7 @@ function App() {
 
     try {
       const response = await axios.post<ReviewResponse>(
-        "http://127.0.0.1:8000/api/contracts/review-demo",
+        apiUrl("/api/contracts/review-demo"),
         formData,
         {
           headers: {

@@ -97,15 +97,16 @@
 
 外部服务：
 
-- PostgreSQL + pgvector，默认由 `docker-compose.yml` 启动
-- Ollama 或其他 OpenAI-compatible Chat Completions 服务
+- PostgreSQL + pgvector，由 `docker-compose.yml` 启动
+- 后端和前端容器，由 `docker-compose.yml` 构建并启动
+- Ollama 或其他 OpenAI-compatible Chat Completions 服务，由宿主机/WSL 自行运行，不再由 Docker 管理
 - 默认 LLM：`qwen2.5:7b-instruct`
 - 默认 embedding：`BAAI/bge-m3`
 - 默认 reranker：`BAAI/bge-reranker-v2-m3`
 
 ## 关键配置
 
-后端读取 `backend/.env`，当前常用配置如下：
+本地直接运行后端时，后端读取 `backend/.env`，常用配置如下：
 
 ```env
 LLM_API_KEY=ollama
@@ -119,6 +120,18 @@ RERANKER_MODEL=BAAI/bge-reranker-v2-m3
 EMBEDDING_DEVICE=cuda
 EMBEDDING_USE_FP16=true
 ```
+
+Docker Compose 运行后端容器时，主要配置来自根目录 `docker-compose.yml`：
+
+```env
+DATABASE_URL=postgresql+psycopg2://contract_user:contract_pass@postgres:5432/contract_review
+LLM_BASE_URL=http://host.docker.internal:11434/v1
+KNOWLEDGE_BASE_DIR=/workspace/sample-data/knowledge
+EMBEDDING_DEVICE=cpu
+EMBEDDING_USE_FP16=false
+```
+
+`host.docker.internal` 通过 Compose 里的 `extra_hosts` 映射到宿主机网关，用于让 backend 容器访问宿主机/WSL 上已经运行的 Ollama。
 
 如果机器没有可用 CUDA，把下面两项改成 CPU：
 
@@ -146,16 +159,30 @@ AttributeError: XLMRobertaTokenizer has no attribute prepare_for_model
 
 这是 `FlagReranker.compute_score()` 和 `transformers 5.x` 的兼容性问题。修复方式是保持 `requirements.txt` 中固定的 `transformers==4.57.3`。
 
-## 启动数据库
+## Docker 统一启动
 
-在项目根目录运行：
+当前 Docker Compose 管理这些服务：
+
+```text
+postgres
+backend
+frontend
+```
+
+Ollama 不由 Docker 管理，需要提前在宿主机/WSL 中启动，并确保监听 `11434`。如果 backend 容器连不上宿主机 Ollama，通常需要让 Ollama 监听外部地址，例如：
+
+```bash
+OLLAMA_HOST=0.0.0.0:11434 ollama serve
+```
+
+在项目根目录启动 Docker 服务：
 
 ```bash
 cd /home/aris/contract-review-platform
-sudo docker compose up -d postgres
+sudo docker compose up -d --build
 ```
 
-数据库服务配置：
+Compose 中的 PostgreSQL 配置：
 
 ```text
 host: localhost
@@ -166,7 +193,19 @@ database: contract_review
 image: pgvector/pgvector:pg16
 ```
 
-如果拉镜像超时，通常是 Docker Hub 网络问题，不是 compose 配置问题。可先单独测试：
+容器内 backend 通过 Docker 服务名访问 PostgreSQL：
+
+```text
+postgres:5432
+```
+
+容器内 backend 通过宿主机网关访问 Ollama：
+
+```text
+http://host.docker.internal:11434/v1
+```
+
+如果拉 `pgvector/pgvector:pg16` 镜像超时，通常是 Docker Hub 网络问题，不是 compose 配置问题。可先单独测试：
 
 ```bash
 sudo docker pull pgvector/pgvector:pg16
@@ -174,27 +213,36 @@ sudo docker pull pgvector/pgvector:pg16
 
 ## 初始化向量数据库
 
-进入后端目录：
+首次启动 PostgreSQL 后，需要初始化数据库表、pgvector 扩展和制度向量索引。推荐在 backend 容器内执行：
+
+```bash
+cd /home/aris/contract-review-platform
+sudo docker compose exec backend python -m scripts.init_db
+sudo docker compose exec backend python -m scripts.index_policy_chunks
+```
+
+也可以在本机后端虚拟环境执行：
 
 ```bash
 cd /home/aris/contract-review-platform/backend
-```
-
-创建 `vector` 扩展、`document_chunks` 表和 ivfflat 索引：
-
-```bash
 .venv/bin/python -m scripts.init_db
-```
-
-把 `sample-data/knowledge/purchase_policy.txt` 切分、embedding 并写入 pgvector：
-
-```bash
 .venv/bin/python -m scripts.index_policy_chunks
 ```
+
+`scripts.init_db` 会创建 `vector` 扩展、`document_chunks` 表和 ivfflat 索引。`scripts.index_policy_chunks` 会把 `sample-data/knowledge/purchase_policy.txt` 切分、embedding 并写入 pgvector。
 
 `document_chunks.embedding` 是 `Vector(1024)`，对应 `BAAI/bge-m3` 的 dense embedding 维度。
 
 ## 测试向量检索和重排序
+
+Docker 环境中：
+
+```bash
+cd /home/aris/contract-review-platform
+sudo docker compose exec backend python scripts/test_vector_search.py
+```
+
+本机虚拟环境中：
 
 ```bash
 cd /home/aris/contract-review-platform/backend
@@ -218,7 +266,7 @@ chunk_id: purchase_policy_0013
 rerank_score: 7.90625
 ```
 
-## 启动后端
+## 本机方式启动后端
 
 ```bash
 cd /home/aris/contract-review-platform/backend
@@ -246,7 +294,7 @@ field: file
 supported suffixes: .txt, .docx, .pdf
 ```
 
-## 启动前端
+## 本机方式启动前端
 
 ```bash
 cd /home/aris/contract-review-platform/frontend
@@ -259,19 +307,33 @@ npm run dev
 http://localhost:5173
 ```
 
-前端会把合同上传到：
+Docker Compose 运行时，前端读取 `VITE_API_BASE_URL`：
+
+```yaml
+VITE_API_BASE_URL: http://localhost:8000
+```
+
+本机开发默认回退到：
 
 ```text
 http://127.0.0.1:8000/api/contracts/review-demo
 ```
 
-## 本地 LLM
+## 本地 Ollama / LLM
 
-默认使用 Ollama 的 OpenAI-compatible API：
+默认使用宿主机/WSL 中 Ollama 的 OpenAI-compatible API：
 
 ```text
 http://127.0.0.1:11434/v1
 ```
+
+Docker 中的 backend 容器使用：
+
+```text
+http://host.docker.internal:11434/v1
+```
+
+这个项目现在不会通过 Docker 拉取或启动 `ollama/ollama` 镜像，也不会创建 `ollama_data` volume。模型由你已有的宿主机/WSL Ollama 管理。
 
 测试脚本：
 
@@ -498,6 +560,22 @@ Warning: You are sending unauthenticated requests to the HF Hub.
 
 ```bash
 cd /home/aris/contract-review-platform
+sudo docker compose up -d --build
+sudo docker compose exec backend python -m scripts.init_db
+sudo docker compose exec backend python -m scripts.index_policy_chunks
+sudo docker compose exec backend python scripts/test_vector_search.py
+```
+
+访问前端：
+
+```text
+http://localhost:5173
+```
+
+本机非 Docker 调试方式：
+
+```bash
+cd /home/aris/contract-review-platform
 sudo docker compose up -d postgres
 
 cd backend
@@ -524,9 +602,10 @@ http://localhost:5173
 ## 当前维护备注
 
 - 根目录 `README.md` 是项目总索引，以后优先阅读这里理解项目。
-- `backend/.env` 是实际后端配置，根目录 `.env.example` 目前为空。
-- `backend/.env.example` 只包含 LLM 配置，未覆盖数据库和 embedding/reranker 配置。
-- `docker-data/postgres/` 是数据库数据目录，权限可能属于容器用户，不要随意编辑。
+- 根目录 `.env.example` 记录本机运行时可用的后端环境变量示例。
+- `backend/.env` 是本机直接运行后端时的实际配置；Docker 运行时优先看 `docker-compose.yml`。
+- Docker 不管理 Ollama；backend 容器通过 `host.docker.internal:11434` 访问宿主机/WSL Ollama。
+- PostgreSQL 数据现在使用 Docker named volume `postgres_data`，不是项目目录里的 `docker-data/postgres/`。
 - `backend/uploads/` 是上传文件保存目录，里面已有历史测试上传文件。
 - 前端 `App.tsx` 展示 `vector_score` 和 `rerank_score`，可用于确认 RAG 是否实际工作。
 - 当前 git 工作区可能已有其他文件改动；维护时不要无关回滚。

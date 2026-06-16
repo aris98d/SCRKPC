@@ -1,0 +1,65 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: contract_review_postgres
+    environment:
+      POSTGRES_USER: contract_user
+      POSTGRES_PASSWORD: contract_pass
+      POSTGRES_DB: contract_review
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U contract_user -d contract_review"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: contract_review_backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+psycopg2://contract_user:contract_pass@postgres:5432/contract_review
+
+      LLM_API_KEY: ollama
+      LLM_BASE_URL: http://host.docker.internal:11434/v1
+      LLM_MODEL: qwen2.5:7b-instruct
+      USE_MOCK_LLM: "false"
+
+      EMBEDDING_MODEL: BAAI/bge-m3
+      RERANKER_MODEL: BAAI/bge-reranker-v2-m3
+      EMBEDDING_DEVICE: cpu
+      EMBEDDING_USE_FP16: "false"
+
+      KNOWLEDGE_BASE_DIR: /workspace/sample-data/knowledge
+    volumes:
+      - backend_uploads:/app/uploads
+      - ./sample-data:/workspace/sample-data:ro
+      - hf_cache:/root/.cache/huggingface
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: contract_review_frontend
+    depends_on:
+      - backend
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_BASE_URL: http://localhost:8000
+
+volumes:
+  postgres_data:
+  backend_uploads:
+  hf_cache:

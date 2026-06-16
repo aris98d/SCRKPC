@@ -1,16 +1,28 @@
 from pathlib import Path
 
+from app.core.config import get_settings
 
-BACKEND_DIR = Path(__file__).resolve().parents[2]
-PROJECT_ROOT = BACKEND_DIR.parent
-POLICY_PATH = PROJECT_ROOT / "sample-data" / "knowledge" / "purchase_policy.txt"
+
+def get_policy_path() -> Path:
+    settings = get_settings()
+    knowledge_dir = Path(settings.knowledge_base_dir)
+
+    if not knowledge_dir.is_absolute():
+        current_file = Path(__file__).resolve()
+        backend_dir = current_file.parents[2]
+        project_root = backend_dir.parent
+        knowledge_dir = project_root / knowledge_dir
+
+    return knowledge_dir / "purchase_policy.txt"
 
 
 def load_policy_text() -> str:
-    if not POLICY_PATH.exists():
-        raise FileNotFoundError(f"Policy file not found: {POLICY_PATH}")
+    policy_path = get_policy_path()
 
-    return POLICY_PATH.read_text(encoding="utf-8")
+    if not policy_path.exists():
+        raise FileNotFoundError(f"Policy file not found: {policy_path}")
+
+    return policy_path.read_text(encoding="utf-8")
 
 
 def clean_heading(line: str, prefix: str) -> str:
@@ -118,3 +130,6 @@ def split_policy_into_chunks(policy_text: str) -> list[dict]:
 def build_policy_chunks() -> list[dict]:
     text = load_policy_text()
     return split_policy_into_chunks(text)
+
+def get_policy_source_path() -> str:
+    return str(get_policy_path())

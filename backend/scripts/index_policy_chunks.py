@@ -3,7 +3,7 @@ from sqlalchemy import delete
 from app.db.session import SessionLocal
 from app.models.knowledge import DocumentChunk
 from app.rag.embedding_service import embed_texts
-from app.rag.policy_loader import POLICY_PATH, build_policy_chunks
+from app.rag.policy_loader import get_policy_source_path, build_policy_chunks
 
 
 def main():
@@ -29,7 +29,7 @@ def main():
                     section_title=chunk.get("section_title"),
                     text=chunk["text"],
                     embedding=embedding,
-                    source_path=str(POLICY_PATH),
+                    source_path=get_policy_source_path(),
                 )
             )
 
